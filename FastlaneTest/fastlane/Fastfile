@@ -47,7 +47,7 @@ platform :android do
 
     add_git_tag(tag: current_date + "_v" + new_version)
 
-    sh "git push origin HEAD:#{ENV['BUILDKITE_BRANCH']} --tags"
+    sh "git push origin HEAD:#{ENV['HELLO']} --tags"
   end
 
   def commit_new_version(message, branch)
@@ -57,7 +57,7 @@ platform :android do
 
   def set_new_version()
     last_tag_version = last_git_tag
-    current_version = ENV['BUILDKITE_BRANCH']
+    current_version = ENV['HELLO']
     version_array = current_version.split('/')[-1].split('.')
 
     new_version = 0
