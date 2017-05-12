@@ -20,6 +20,93 @@ platform :android do
     # ENV["SLACK_URL"] = "https://hooks.slack.com/services/..."
   end
 
+  lane :testVersion do
+
+    new_version = set_new_version()
+    release_branch = ENV['HELLO']
+      message = "Increment version number to #{new_version} .[skip ci]"
+      commit_new_version(message, ENV['HELLO'])
+
+      # reflect version number on develop
+      sh "git checkout develop"
+      sh "git pull origin develop"
+      increment_version_name(app_folder_name: "app", version_name: new_version)
+      commit_new_version(message, "develop")
+
+       sh "git checkout #{release_branch}"
+  end
+
+  desc "Tag a build on GitHub"
+  lane :tag do
+    #sh "cp ../keys/${PROJECT}/* .."
+    current_date = Time.now.strftime("%Y_%m_%d")
+    new_version = get_version_name
+
+    #sh "chmod +x ../keys/id_rsa"
+    #sh "ssh-add ../keys/id_rsa"
+
+    add_git_tag(tag: current_date + "_v" + new_version)
+
+    sh "git push origin HEAD:#{ENV['BUILDKITE_BRANCH']} --tags"
+  end
+
+  def commit_new_version(message, branch)
+    git_commit(path: "app/build.gradle", message: message)
+    sh "git push origin HEAD:#{branch}"
+  end
+
+  def set_new_version()
+    last_tag_version = last_git_tag
+    current_version = ENV['BUILDKITE_BRANCH']
+    version_array = current_version.split('/')[-1].split('.')
+
+    new_version = 0
+    minor_version = 0
+
+    unless last_tag_version.nil?
+      last_tag_version_array = last_tag_version.split('v')[-1].split('.')
+
+      for i in 0..2
+        if (version_array[i].to_i < last_tag_version_array[i].to_i)
+          version_array = last_tag_version_array
+          minor_version = version_array[-1].strip.to_i
+          minor_version += 1
+          break
+        elsif version_array[i].to_i > last_tag_version_array[i].to_i
+          minor_version = version_array[-1].strip.to_i
+          break
+        end
+      end
+
+      check = false
+      for i in 0..2
+        if (version_array[i].to_i == last_tag_version_array[i].to_i)
+          check = true
+        elsif version_array[i].to_i != last_tag_version_array[i].to_i
+          check = false
+          break
+        end
+      end
+
+      if check == true
+        version_array = last_tag_version_array
+        minor_version = version_array[-1].strip.to_i
+        minor_version += 1
+      end
+
+    else
+      minor_version = version_array[-1].strip.to_i
+    end
+
+    version_array[-1] = minor_version
+    new_version = version_array.join(".")
+
+    # increment_version_code(app_folder_name: "app")
+    increment_version_name(app_folder_name: "app", version_name: new_version)
+
+    return new_version
+  end
+
   desc "Runs all the tests"
   lane :test do
     gradle(task: "test")
